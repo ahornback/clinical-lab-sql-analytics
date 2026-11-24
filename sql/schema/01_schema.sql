@@ -56,6 +56,9 @@
 --     to 1 day before ordered_at. Event timestamps may not be more than five
 --     minutes in the future. Those rules are triggers because CHECK cannot see
 --     the clock or another table.
+--   * A database that already ran an earlier copy of this file should run
+--     sql/schema/02_repair_future_date_trigger.sql. That script replaces
+--     reject_future_calendar_dates and does not drop tables or rows.
 
 BEGIN;
 
@@ -1086,16 +1089,25 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog
 AS $func$
 BEGIN
-  IF TG_TABLE_NAME = 'patients' AND NEW.date_of_birth > CURRENT_DATE THEN
-    RAISE EXCEPTION 'patients.date_of_birth % is in the future', NEW.date_of_birth;
-  ELSIF TG_TABLE_NAME = 'lab_staff' AND NEW.hired_on > CURRENT_DATE THEN
-    RAISE EXCEPTION 'lab_staff.hired_on % is in the future', NEW.hired_on;
-  ELSIF TG_TABLE_NAME = 'lab_orders'
-        AND NEW.requisition_date_of_birth IS NOT NULL
-        AND NEW.requisition_date_of_birth > CURRENT_DATE THEN
-    RAISE EXCEPTION
-      'lab_orders.requisition_date_of_birth % is in the future',
-      NEW.requisition_date_of_birth;
+  -- Choose the table before reading NEW. PL/pgSQL can resolve a column
+  -- from another table when several terms share one boolean expression.
+  -- The patient branch reads only the birth date. The staff branch reads
+  -- only the hire date. The order branch reads only the requisition date.
+  IF TG_TABLE_NAME = 'patients' THEN
+    IF NEW.date_of_birth > CURRENT_DATE THEN
+      RAISE EXCEPTION 'patients.date_of_birth % is in the future', NEW.date_of_birth;
+    END IF;
+  ELSIF TG_TABLE_NAME = 'lab_staff' THEN
+    IF NEW.hired_on > CURRENT_DATE THEN
+      RAISE EXCEPTION 'lab_staff.hired_on % is in the future', NEW.hired_on;
+    END IF;
+  ELSIF TG_TABLE_NAME = 'lab_orders' THEN
+    IF NEW.requisition_date_of_birth IS NOT NULL
+       AND NEW.requisition_date_of_birth > CURRENT_DATE THEN
+      RAISE EXCEPTION
+        'lab_orders.requisition_date_of_birth % is in the future',
+        NEW.requisition_date_of_birth;
+    END IF;
   END IF;
   RETURN NEW;
 END;
