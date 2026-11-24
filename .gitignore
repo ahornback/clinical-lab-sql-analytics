@@ -1,0 +1,29 @@
+# Operating system
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+*.duckdb
+
+# Generated synthetic extracts
+data/synthetic/*
+!data/synthetic/.gitkeep
+
+# Editors
+.idea/
+.vscode/
