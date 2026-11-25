@@ -11,7 +11,9 @@ The schema is installed in the local PostgreSQL database `lab_operations`, in sc
 - [sql/verification/verify_constraints.sql](sql/verification/verify_constraints.sql) checks the essential constraints in `lab_operations` and rolls back every temporary test row.
 - [docs/data_dictionary.md](docs/data_dictionary.md) describes every column.
 - [docs/erd.md](docs/erd.md) is the entity relationship diagram.
-- Synthetic data is not generated yet.
+- [scripts/02_generate_data.sql](scripts/02_generate_data.sql) builds the synthetic rows in one transaction. It has not been executed.
+- [scripts/03_validate_data.sql](scripts/03_validate_data.sql) checks that load. It has not been executed.
+- Synthetic data is not loaded yet.
 - Analytical queries and a dashboard are not written yet.
 
 ## Layout
@@ -24,7 +26,7 @@ The schema is installed in the local PostgreSQL database `lab_operations`, in sc
 | `sql/views/` | Reporting views, not written yet |
 | `data/synthetic/` | Generated datasets, not written yet |
 | `docs/` | Data dictionary and entity relationship diagram |
-| `scripts/` | Scripts that generate or load data, not written yet |
+| `scripts/` | Seeded generator and read-only validator for `clinical_lab`. Not executed yet |
 
 Empty directories are kept with a `.gitkeep` file so the layout is in version control before those files exist.
 
@@ -45,6 +47,25 @@ PostgreSQL 14 or newer is required. The schema scripts do not drop tables and do
 7. Each file begins with `BEGIN` and ends with `COMMIT`. A failed statement rolls that file's transaction back. On success, DBeaver's output shows the commit.
 8. Refresh the connection in Database Navigator. Open Schemas → `clinical_lab` and confirm the seven tables listed above. Column comments are visible in each table's column properties.
 9. Run `01_schema.sql` only once. A second run stops because the tables already exist. The file contains no `DROP TABLE` statement. `02_repair_future_date_trigger.sql` can be run again; it only replaces the future-date function.
+
+## Load synthetic data
+
+The generator and validator are written and have not been run. Running them fills `lab_operations`, schema `clinical_lab`.
+
+`scripts/02_generate_data.sql` loads departments, patients, tests, employees, orders, specimens, and exceptions in one transaction. A failed statement rolls that load back, so the seven tables stay empty. A second run stops if any of those tables already has rows. Identity values may skip numbers because rolled-back tests advanced the sequences. The generator does not reset sequences. It finds parent rows by natural keys.
+
+`scripts/03_validate_data.sql` is read-only. It checks the row counts, required statuses, the twelve-month order window, and that quality flags match exception rows.
+
+The load targets 10,000 patients, 6 departments, 25 tests, 40 employees, 50,000 orders, and at least 50,000 specimens. Order dates run from 2025-11-01 through 2026-10-31, America/New_York.
+
+Run each file in its own session, from the repository root. If a transaction is already open, roll it back first. Do not wrap either file in another transaction. Run the generator in a new session so its seed covers the whole file. Run the validator after the generator.
+
+```text
+psql -h 127.0.0.1 -p 5432 -U postgres -d lab_operations -v ON_ERROR_STOP=1 -f scripts/02_generate_data.sql
+psql -h 127.0.0.1 -p 5432 -U postgres -d lab_operations -v ON_ERROR_STOP=1 -f scripts/03_validate_data.sql
+```
+
+In DBeaver, connect to `lab_operations` and use **Execute SQL Script** (Alt+X). **Execute SQL Statement** runs only the statement at the cursor.
 
 ## Working agreement
 
