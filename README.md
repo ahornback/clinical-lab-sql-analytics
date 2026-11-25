@@ -11,9 +11,9 @@ The schema is installed in the local PostgreSQL database `lab_operations`, in sc
 - [sql/verification/verify_constraints.sql](sql/verification/verify_constraints.sql) checks the essential constraints in `lab_operations` and rolls back every temporary test row.
 - [docs/data_dictionary.md](docs/data_dictionary.md) describes every column.
 - [docs/erd.md](docs/erd.md) is the entity relationship diagram.
-- [scripts/02_generate_data.sql](scripts/02_generate_data.sql) builds the synthetic rows in one transaction. It has not been executed.
-- [scripts/03_validate_data.sql](scripts/03_validate_data.sql) checks that load. It has not been executed.
-- Synthetic data is not loaded yet.
+- [scripts/02_generate_data.sql](scripts/02_generate_data.sql) loaded the synthetic rows in one transaction.
+- [scripts/03_validate_data.sql](scripts/03_validate_data.sql) returned `SYNTHETIC_DATA_VALID` against that load.
+- The verified row counts are in [Load synthetic data](#load-synthetic-data).
 - Analytical queries and a dashboard are not written yet.
 
 ## Layout
@@ -26,7 +26,7 @@ The schema is installed in the local PostgreSQL database `lab_operations`, in sc
 | `sql/views/` | Reporting views, not written yet |
 | `data/synthetic/` | Generated datasets, not written yet |
 | `docs/` | Data dictionary and entity relationship diagram |
-| `scripts/` | Seeded generator and read-only validator for `clinical_lab`. Not executed yet |
+| `scripts/` | Seeded generator and read-only validator. Loaded and validated in `lab_operations`. |
 
 Empty directories are kept with a `.gitkeep` file so the layout is in version control before those files exist.
 
@@ -50,7 +50,19 @@ PostgreSQL 14 or newer is required. The schema scripts do not drop tables and do
 
 ## Load synthetic data
 
-The generator and validator are written and have not been run. Running them fills `lab_operations`, schema `clinical_lab`.
+The generator and validator ran against `lab_operations`, schema `clinical_lab`, on 2026-11-24. All seven tables were empty before the load, and the earlier failed attempt had rolled back. `psql` exited 0. Generation took 117.513 seconds. Validation took 31.123 seconds and returned `SYNTHETIC_DATA_VALID`. Patient names, employee names, phone numbers, and email addresses in that load are fictional.
+
+Verified row counts:
+
+| Table | Rows |
+| --- | --- |
+| departments | 6 |
+| patients | 10,000 |
+| test_catalog | 25 |
+| lab_staff | 40 |
+| lab_orders | 50,000 |
+| specimens | 53,214 |
+| lab_exceptions | 11,467 |
 
 `scripts/02_generate_data.sql` loads departments, patients, tests, employees, orders, specimens, and exceptions in one transaction. A failed statement rolls that load back, so the seven tables stay empty. A second run stops if any of those tables already has rows. Identity values may skip numbers because rolled-back tests advanced the sequences. The generator does not reset sequences. It finds parent rows by natural keys.
 
