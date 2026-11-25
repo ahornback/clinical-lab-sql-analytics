@@ -110,22 +110,22 @@ INSERT INTO clinical_lab.lab_staff (
   shift_code, shift_start_time, shift_end_time, hired_on
 )
 SELECT
-  'E' || lpad(i::text, 4, '0'),
+  'E' || lpad(g.i::text, 4, '0'),
   (ARRAY[
     'Avery', 'Blake', 'Casey', 'Devon', 'Ellis', 'Finley', 'Gray', 'Harper',
     'Indy', 'Jules', 'Kelly', 'Logan', 'Morgan', 'Noah', 'Parker', 'Quinn',
     'Reese', 'Shawn', 'Taylor', 'Winter'
-  ])[1 + ((i - 1) % 20)],
+  ])[1 + ((g.i - 1) % 20)],
   (ARRAY[
     'Alden', 'Brooks', 'Carter', 'Diaz', 'Ellison', 'Foster', 'Garcia', 'Hayes',
     'Ibarra', 'Jung', 'Klein', 'Lopez', 'Meyer', 'Nguyen', 'Owens', 'Patel',
     'Quincy', 'Rossi', 'Shah', 'Tran', 'Ueda', 'Voss', 'Walker', 'Young'
-  ])[1 + ((i * 5) % 24)],
+  ])[1 + ((g.i * 5) % 24)],
   CASE
-    WHEN i BETWEEN 1 AND 8 THEN 'phlebotomist'
-    WHEN i BETWEEN 9 AND 14 THEN 'accessioner'
-    WHEN i BETWEEN 15 AND 34 THEN 'technologist'
-    WHEN i BETWEEN 35 AND 38 THEN 'supervisor'
+    WHEN g.i BETWEEN 1 AND 8 THEN 'phlebotomist'
+    WHEN g.i BETWEEN 9 AND 14 THEN 'accessioner'
+    WHEN g.i BETWEEN 15 AND 34 THEN 'technologist'
+    WHEN g.i BETWEEN 35 AND 38 THEN 'supervisor'
     ELSE 'pathologist'
   END,
   d.department_id,
@@ -142,26 +142,26 @@ SELECT
     WHEN 'night' THEN TIME '07:00'
     ELSE TIME '19:00'
   END,
-  DATE '2013-06-01' + (i * 80)
+  DATE '2013-06-01' + (g.i * 80)
 FROM generate_series(1, 40) AS g(i)
 JOIN (
   SELECT
-    i,
+    staff_seq.staff_n,
     CASE
-      WHEN i BETWEEN 1 AND 8 THEN (ARRAY['CHEM', 'HEM', 'CHEM', 'BBANK', 'UA', 'HEM', 'BBANK', 'UA'])[i]
-      WHEN i BETWEEN 9 AND 14 THEN (ARRAY['CHEM', 'HEM', 'MICRO', 'BBANK', 'UA', 'IMM'])[i - 8]
-      WHEN i BETWEEN 15 AND 34 THEN (ARRAY['CHEM', 'HEM', 'MICRO', 'BBANK', 'UA', 'IMM'])[1 + ((i - 15) % 6)]
-      WHEN i BETWEEN 35 AND 38 THEN (ARRAY['CHEM', 'HEM', 'MICRO', 'BBANK'])[i - 34]
-      ELSE (ARRAY['MICRO', 'IMM'])[i - 38]
+      WHEN staff_seq.staff_n BETWEEN 1 AND 8 THEN (ARRAY['CHEM', 'HEM', 'CHEM', 'BBANK', 'UA', 'HEM', 'BBANK', 'UA'])[staff_seq.staff_n]
+      WHEN staff_seq.staff_n BETWEEN 9 AND 14 THEN (ARRAY['CHEM', 'HEM', 'MICRO', 'BBANK', 'UA', 'IMM'])[staff_seq.staff_n - 8]
+      WHEN staff_seq.staff_n BETWEEN 15 AND 34 THEN (ARRAY['CHEM', 'HEM', 'MICRO', 'BBANK', 'UA', 'IMM'])[1 + ((staff_seq.staff_n - 15) % 6)]
+      WHEN staff_seq.staff_n BETWEEN 35 AND 38 THEN (ARRAY['CHEM', 'HEM', 'MICRO', 'BBANK'])[staff_seq.staff_n - 34]
+      ELSE (ARRAY['MICRO', 'IMM'])[staff_seq.staff_n - 38]
     END AS department_code,
     CASE
-      WHEN i BETWEEN 1 AND 8 THEN (ARRAY['day', 'day', 'day', 'evening', 'evening', 'night', 'night', 'rotating'])[i]
-      WHEN i BETWEEN 9 AND 14 THEN (ARRAY['day', 'day', 'evening', 'evening', 'night', 'rotating'])[i - 8]
-      WHEN i BETWEEN 15 AND 34 THEN (ARRAY['day', 'evening', 'night', 'day', 'evening', 'night', 'day'])[1 + ((i - 15) % 7)]
+      WHEN staff_seq.staff_n BETWEEN 1 AND 8 THEN (ARRAY['day', 'day', 'day', 'evening', 'evening', 'night', 'night', 'rotating'])[staff_seq.staff_n]
+      WHEN staff_seq.staff_n BETWEEN 9 AND 14 THEN (ARRAY['day', 'day', 'evening', 'evening', 'night', 'rotating'])[staff_seq.staff_n - 8]
+      WHEN staff_seq.staff_n BETWEEN 15 AND 34 THEN (ARRAY['day', 'evening', 'night', 'day', 'evening', 'night', 'day'])[1 + ((staff_seq.staff_n - 15) % 7)]
       ELSE 'day'
     END AS shift_code
-  FROM generate_series(1, 40) AS i
-) AS s ON s.i = g.i
+  FROM generate_series(1, 40) AS staff_seq(staff_n)
+) AS s ON s.staff_n = g.i
 JOIN clinical_lab.departments AS d
   ON d.department_code = s.department_code;
 
@@ -190,9 +190,9 @@ CREATE TEMP TABLE gen_patient_draw (
 );
 
 INSERT INTO gen_patient_draw (n, u_dob, u_span, u_sex, u_phone, u_email)
-SELECT n, random(), random(), random(), random(), random()
+SELECT g.n, random(), random(), random(), random(), random()
 FROM generate_series(1, 10000) AS g(n)
-ORDER BY n;
+ORDER BY g.n;
 
 INSERT INTO clinical_lab.patients (
   mrn, first_name, last_name, date_of_birth, sex,
@@ -269,27 +269,27 @@ SET
   email = CASE WHEN v.status = 'incomplete' THEN NULL ELSE p.email END
 FROM (
   SELECT
-    n,
-    'MRN' || lpad(n::text, 8, '0') AS mrn,
+    patient_seq.patient_n,
+    'MRN' || lpad(patient_seq.patient_n::text, 8, '0') AS mrn,
     CASE
-      WHEN n > 400 AND n % 80 = 0 THEN 'merged'
-      WHEN n % 90 = 1 THEN 'duplicate_suspected'
-      WHEN n % 70 = 2 THEN 'incomplete'
-      WHEN n % 50 = 3 THEN 'inactive'
+      WHEN patient_seq.patient_n > 400 AND patient_seq.patient_n % 80 = 0 THEN 'merged'
+      WHEN patient_seq.patient_n % 90 = 1 THEN 'duplicate_suspected'
+      WHEN patient_seq.patient_n % 70 = 2 THEN 'incomplete'
+      WHEN patient_seq.patient_n % 50 = 3 THEN 'inactive'
       ELSE 'active'
     END AS status,
     CASE
-      WHEN n > 400 AND n % 80 = 0 THEN false
-      WHEN n % 90 = 1 THEN false
-      WHEN n % 70 = 2 THEN false
-      WHEN n % 50 = 3 THEN (n % 2 = 0)
-      ELSE (n % 6 <> 0)
+      WHEN patient_seq.patient_n > 400 AND patient_seq.patient_n % 80 = 0 THEN false
+      WHEN patient_seq.patient_n % 90 = 1 THEN false
+      WHEN patient_seq.patient_n % 70 = 2 THEN false
+      WHEN patient_seq.patient_n % 50 = 3 THEN (patient_seq.patient_n % 2 = 0)
+      ELSE (patient_seq.patient_n % 6 <> 0)
     END AS verified,
     CASE
-      WHEN n > 400 AND n % 80 = 0 THEN 'MRN' || lpad((n - 400)::text, 8, '0')
+      WHEN patient_seq.patient_n > 400 AND patient_seq.patient_n % 80 = 0 THEN 'MRN' || lpad((patient_seq.patient_n - 400)::text, 8, '0')
       ELSE NULL
     END AS parent_mrn
-  FROM generate_series(1, 10000) AS n
+  FROM generate_series(1, 10000) AS patient_seq(patient_n)
 ) AS v
 LEFT JOIN clinical_lab.patients AS parent
   ON parent.mrn = v.parent_mrn
@@ -438,11 +438,11 @@ INSERT INTO gen_draw (
   u_tat, u_collect, u_issue, u_disc, u_label, u_wrong_type, u_missing, u_recollect, u_resolve
 )
 SELECT
-  n,
+  g.n,
   random(), random(), random(), random(), random(), random(), random(), random(),
   random(), random(), random(), random(), random(), random(), random(), random(), random()
 FROM generate_series(1, 50000) AS g(n)
-ORDER BY n;
+ORDER BY g.n;
 
 CREATE TEMP TABLE gen_staff AS
 SELECT
